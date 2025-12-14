@@ -6,6 +6,8 @@ const totalDisplay = document.getElementById("total");
 
 let expenses = [];
 
+loadExpenses();
+
 addBtn.addEventListener("click", () => {
     const name = nameInput.value.trim();
     const amount = Number(amountInput.value.trim());
@@ -30,16 +32,16 @@ addBtn.addEventListener("click", () => {
 });
 
 expenseList.addEventListener("click", (e) => {
-    if(e.target.classList.contains("delete-btn")) {
-        const li = e.target.parentElement;
-        const amount = Number(li.dataset.amount) || 0;
+    if(!e.target.classList.contains("delete-btn")) return;
+    
+    const li = e.target.parentElement;
+    const name = li.dataset.name;
+    const amount = Number(li.dataset.amount);
 
-        //Update total
-        total -= amount;
-        totalDisplay.textContent = total;
-
-        li.remove();
-    }
+    expenses = expenses.filter(exp => !(exp.name === name && exp.amount === amount));
+    saveExpenses();
+    li.remove();
+    updateTotal();
 })
 
 function saveExpenses() {
@@ -65,6 +67,6 @@ function addExpenseToUI(expense) {
 }
 
 function updateTotal() {
-    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-    totalDisplay.textcontext = total;
+    const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    totalDisplay.textContent = total;
 }
