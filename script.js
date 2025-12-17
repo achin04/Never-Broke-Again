@@ -78,7 +78,9 @@ function renderExpenses() {
             <div class="expense-info">
                 <span>${exp.name}</span>
                 <span class="amount">$${exp.amount}</span>
+                <span class="catagory">$${exp.catagory}</span>
             </div>
+            <button class="edit-btn">Edit</button>
             <button class="delete-btn">X</button>
         `;
 
