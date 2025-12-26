@@ -79,6 +79,19 @@ li {
     font-weight: bold;
 }
 
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+.edit-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+
 .delete-btn {
     background: #e74c3c;
     color: white;
