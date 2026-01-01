@@ -5,12 +5,15 @@ const expenseList = document.getElementById("expense-list");
 const totalDisplay = document.getElementById("total");
 const categoryInput = document.getElementById("expense-category");
 const filterCategory = document.getElementById("filter-category");
+const dateInput = document.getElementById("expense-date")
+const filterMonth = document.getElementById("filter-month")
 
 let expenses = [];
 let editingExpenses = null;
 
 loadExpenses();
 
+//#region Event listeners
 addBtn.addEventListener("click", () => {
     const name = nameInput.value.trim();
     const amount = Number(amountInput.value.trim());
@@ -21,20 +24,20 @@ addBtn.addEventListener("click", () => {
         return;
     }
 
+    const date = dateInput.value || new Date().toISOString().split("T")[0];
+
     if (editingExpenses == null) {
-        expenses.push({name, amount, category});
+        expenses.push({name, amount, category, date});
     } else {
-        expenses[editingExpenses] = {name, amount, category};
+        expenses[editingExpenses] = {name, amount, category, date};
         editingExpenses = null;
         addBtn.textContent = "Add Expense";
     }
 
-    const expense = { name, amount, category };
-    expenses.push(expense);
-
     saveExpenses();
     renderExpenses();
     updateTotal();
+    populateMonthFilter();
 
     //clear inputs
     nameInput.value = "";
@@ -52,6 +55,7 @@ expenseList.addEventListener("click", (e) => {
         saveExpenses();
         renderExpenses();
         updateTotal();
+        populateMonthFilter();
         return;
     }
 
@@ -60,6 +64,7 @@ expenseList.addEventListener("click", (e) => {
         nameInput.value = expense.name;
         amountInput.value = expense.amount;
         categoryInput.value = expense.category;
+        dateInput.value = expense.date;
 
         editingExpenses = index;
         addBtn.textContent = "Save Changes";
@@ -72,30 +77,76 @@ filterCategory.addEventListener("change", () => {
     updateTotal();
 });
 
-function saveExpenses() {
-    localStorage.setItem("expenses", JSON.stringify(expenses));
-}
+filterMonth.addEventListener("change", () => {
+    renderExpenses();
+    updateTotal();
+})
+//#endregion
 
 function loadExpenses() {
     const stored = localStorage.getItem("expenses");
     if (stored) {
-        expenses = JSON.parse(stored);
+        try {
+            const parsed = JSON.parse(stored);
+            
+            expenses = parsed.map(exp => ({
+                ...exp,
+                date: exp.date || new Date().toISOString().split("T")[0],
+            }));
+        } catch (err) {
+            expenses = [];
+            console.error("Failed to parse stored expenses:", err);
+        }
         renderExpenses();
         updateTotal();
+        populateMonthFilter();
     }
+}
+
+function populateMonthFilter() {
+    const months = new Set(
+        expenses
+            .map(expense => (expense && expense.date ? expense.date.slice(0,7) : null))
+            .filter(Boolean)
+    );
+
+    filterMonth.innerHTML =`<option value="All">All Months</option>`;
+
+    months.forEach(month => {
+        const option = document.createElement("option");
+        option.value = month;
+        option.textContent = month;
+        filterMonth.appendChild(option);
+    });
+}
+
+function getFilteredExpenses() {
+    const selectedCategory = filterCategory.value;
+    const selectedMonth = filterMonth.value;
+
+    return expenses.filter(item => {
+            const matchesCategory =
+                selectedCategory === "All" || item.category === selectedCategory;
+
+            const itemDate = item.date || "";
+            const matchesMonth =
+                selectedMonth ==="All" || itemDate.startsWith(selectedMonth);
+
+            return matchesCategory && matchesMonth
+        });
+}
+
+//#region CRUD
+function saveExpenses() {
+    localStorage.setItem("expenses", JSON.stringify(expenses));
 }
 
 function renderExpenses() {
     expenseList.innerHTML = "";
-
-    const selectedCategory = filterCategory.value;
-
-    const filteredExpenses = expenses
-        .map((exp, index) => ({ ...exp, index }))
-        .filter(item => selectedCategory === "All" || item.category === selectedCategory);
+    const filteredExpenses = getFilteredExpenses().map((item, index) => ({...item, index}));
 
     filteredExpenses.forEach(item => {
-        const { name, amount, category, index } = item;
+        const { name, amount, category, date, index } = item;
 
         const li = document.createElement("li");
 
@@ -104,9 +155,12 @@ function renderExpenses() {
                 <span>${name}</span>
                 <span class="amount">$${amount}</span>
                 <span class="category">${category}</span>
+                <span class="date">${date}</span>
             </div>
-            <button class="edit-btn">Edit</button>
-            <button class="delete-btn">X</button>
+            <div class="actions">
+                <button class="edit-btn">Edit</button>
+                <button class="delete-btn">X</button>
+            </div>
         `;
 
         li.dataset.index = index;
@@ -118,12 +172,10 @@ function renderExpenses() {
     });
 }
 
-
 function updateTotal() {
-    const selectedCategory = filterCategory.value;
+    const filteredExpenses = getFilteredExpenses();
+    const total = filteredExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
 
-    const filteredExpenses = selectedCategory === "All" ? expenses : expenses.filter(exp => exp.category === selectedCategory);
-
-    const total = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
     totalDisplay.textContent = total;
 }
+//#endregion

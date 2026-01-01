@@ -70,13 +70,18 @@ li {
     font-weight: 500;
 }
 
+.amount {
+    font-weight: bold;
+}
+
 .category {
     font-size: 0.85rem;
     color: #777;
 }
 
-.amount {
-    font-weight: bold;
+.date {
+    font-size: 0.85em;
+    color: gray;
 }
 
 .actions {
