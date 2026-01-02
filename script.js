@@ -9,7 +9,7 @@ const dateInput = document.getElementById("expense-date")
 const filterMonth = document.getElementById("filter-month")
 
 let expenses = [];
-let editingExpenses = null;
+let editingIndex = null;
 
 loadExpenses();
 
@@ -19,18 +19,21 @@ addBtn.addEventListener("click", () => {
     const amount = Number(amountInput.value.trim());
     const category = categoryInput.value;
 
+    //vaidation to ensure name is not emplty and amount is positive
     if (!name || amount <= 0) {
         nameInput.focus();
         return;
     }
 
+    //assigns current date if no date is provided
     const date = dateInput.value || new Date().toISOString().split("T")[0];
 
-    if (editingExpenses == null) {
+    // uses editingIndex to determine if adding new or editing existing
+    if (editingIndex == null) {
         expenses.push({name, amount, category, date});
     } else {
-        expenses[editingExpenses] = {name, amount, category, date};
-        editingExpenses = null;
+        expenses[editingIndex] = {name, amount, category, date};
+        editingIndex = null;
         addBtn.textContent = "Add Expense";
     }
 
@@ -45,12 +48,16 @@ addBtn.addEventListener("click", () => {
 });
 
 expenseList.addEventListener("click", (e) => {
+    // finds closest li element to determine which expense was clicked
     const li = e.target.closest("li");
     if (!li) return;
 
+    // gets index from data attribute
     const index = Number(li.dataset.index);
 
+    //delete expense
     if(e.target.classList.contains("delete-btn")) {
+        //removes (1) expense from array at given index
         expenses.splice(index, 1);
         saveExpenses();
         renderExpenses();
@@ -59,6 +66,7 @@ expenseList.addEventListener("click", (e) => {
         return;
     }
 
+    //edit expense
     if(e.target.classList.contains("edit-btn")) {
         const expense = expenses[index];
         nameInput.value = expense.name;
@@ -66,16 +74,20 @@ expenseList.addEventListener("click", (e) => {
         categoryInput.value = expense.category;
         dateInput.value = expense.date;
 
-        editingExpenses = index;
+        // Enter edit mode so the selected expense is overwritten on save
+        editingIndex = index;
+
+        // Signal to the user that the form will save changes
         addBtn.textContent = "Save Changes";
         return;
     }
-})
+});
 
+//filters categories and months to render expenses and update total based on user selection in dropdowns
 filterCategory.addEventListener("change", () => {
     renderExpenses();
     updateTotal();
-});
+})
 
 filterMonth.addEventListener("change", () => {
     renderExpenses();
@@ -84,15 +96,18 @@ filterMonth.addEventListener("change", () => {
 //#endregion
 
 function loadExpenses() {
+    // retrieves stored expenses from localStorage
     const stored = localStorage.getItem("expenses");
     if (stored) {
         try {
+            // parses stored JSON string back into array
             const parsed = JSON.parse(stored);
             
+            // ensures each expense has a date property
             expenses = parsed.map(exp => ({
                 ...exp,
                 date: exp.date || new Date().toISOString().split("T")[0],
-            }));
+            }));         
         } catch (err) {
             expenses = [];
             console.error("Failed to parse stored expenses:", err);
@@ -104,14 +119,16 @@ function loadExpenses() {
 }
 
 function populateMonthFilter() {
+    //creates a set of unique months from expenses
     const months = new Set(
         expenses
-            .map(expense => (expense && expense.date ? expense.date.slice(0,7) : null))
-            .filter(Boolean)
+            .map(expense => (expense && expense.date ? expense.date.slice(0,7) : null)) //YYYY-MM
+            .filter(Boolean) //removes null/undefined
     );
 
     filterMonth.innerHTML =`<option value="All">All Months</option>`;
 
+    //adds each unique month as an option in the month filter dropdown
     months.forEach(month => {
         const option = document.createElement("option");
         option.value = month;
@@ -125,31 +142,35 @@ function getFilteredExpenses() {
     const selectedMonth = filterMonth.value;
 
     return expenses.filter(item => {
-            const matchesCategory =
-                selectedCategory === "All" || item.category === selectedCategory;
+        // Allow all categories when "All" is selected, otherwise restrict to the chosen category
+        const matchesCategory =
+            selectedCategory === "All" || item.category === selectedCategory;
 
-            const itemDate = item.date || "";
-            const matchesMonth =
-                selectedMonth ==="All" || itemDate.startsWith(selectedMonth);
+        const itemDate = item.date || "";
+        // Allow all months when "All" is selected, otherwise match by YYYY-MM prefix
+        const matchesMonth =
+            selectedMonth ==="All" || itemDate.startsWith(selectedMonth);
 
-            return matchesCategory && matchesMonth
-        });
+        return matchesCategory && matchesMonth
+    });
 }
 
 //#region CRUD
 function saveExpenses() {
+    // stores expenses array as JSON string in localStorage
     localStorage.setItem("expenses", JSON.stringify(expenses));
 }
 
 function renderExpenses() {
     expenseList.innerHTML = "";
-    const filteredExpenses = getFilteredExpenses().map((item, index) => ({...item, index}));
+    const filteredExpenses = getFilteredExpenses();
 
     filteredExpenses.forEach(item => {
-        const { name, amount, category, date, index } = item;
-
+        const originalIndex = expenses.indexOf(item);
+        const { name, amount, category, date } = item;
         const li = document.createElement("li");
 
+        // sets inner HTML of list item with expense details and action buttons
         li.innerHTML = `
             <div class="expense-info">
                 <span>${name}</span>
@@ -163,7 +184,8 @@ function renderExpenses() {
             </div>
         `;
 
-        li.dataset.index = index;
+        // Store index and other details as data attributes for easy access during edit/delete
+        li.dataset.index = originalIndex;
         li.dataset.amount = amount;
         li.dataset.name = name;
         li.dataset.category = category;
@@ -174,7 +196,7 @@ function renderExpenses() {
 
 function updateTotal() {
     const filteredExpenses = getFilteredExpenses();
-    const total = filteredExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    const total = filteredExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0); //Add up all visible expenses, but treat anything invalid as zero so the total always stays usable.
 
     totalDisplay.textContent = total;
 }
